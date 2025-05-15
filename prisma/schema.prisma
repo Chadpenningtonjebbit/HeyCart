@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// User model
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  widgets       Widget[]
+  shopifyStores ShopifyStore[]
+}
+
+// Widget model
+model Widget {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shopifyStoreId String?
+  shopifyStore  ShopifyStore? @relation(fields: [shopifyStoreId], references: [id])
+}
+
+// Shopify store model
+model ShopifyStore {
+  id          String   @id
+  name        String
+  domain      String   @unique
+  email       String?
+  accessToken String
+  scope       String
+  isActive    Boolean  @default(true)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  widgets     Widget[]
+  products    ShopifyProduct[]
+  orders      ShopifyOrder[]
+  customers   ShopifyCustomer[]
+  webhooks    ShopifyWebhook[]
+}
+
+// Shopify product model
+model ShopifyProduct {
+  id          String   @id
+  shopId      String
+  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  title       String
+  handle      String
+  description String   @db.Text
+  priceMin    Float
+  priceMax    Float
+  currency    String
+  imageUrl    String?
+  imageAlt    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  variants    ShopifyProductVariant[]
+
+  @@index([shopId])
+  @@index([handle])
+}
+
+// Shopify product variant model
+model ShopifyProductVariant {
+  id              String   @id
+  productId       String
+  product         ShopifyProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+  title           String
+  price           Float
+  availableForSale Boolean
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([productId])
+}
+
+// Shopify order model
+model ShopifyOrder {
+  id                String   @id
+  shopId            String
+  shop              ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  orderNumber       String
+  customerId        String?
+  financialStatus   String
+  fulfillmentStatus String
+  totalPrice        Float
+  currency          String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([customerId])
+}
+
+// Shopify customer model
+model ShopifyCustomer {
+  id          String   @id
+  shopId      String
+  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  email       String
+  firstName   String?
+  lastName    String?
+  ordersCount Int       @default(0)
+  totalSpent  Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([shopId])
+  @@index([email])
+}
+
+// Shopify webhook model
+model ShopifyWebhook {
+  id          String   @id @default(cuid())
+  shopId      String
+  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  topic       String
+  address     String
+  webhookId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([topic])
+} 
