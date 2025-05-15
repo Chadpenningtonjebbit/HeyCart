@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import crypto from 'crypto';
+import { ShopifyProduct, ShopifyOrder, ShopifyShop } from '@/lib/shopify/types';
 
 /**
  * Handles incoming webhooks from Shopify
@@ -90,34 +91,38 @@ function verifyWebhookHmac(hmac: string, body: string): boolean {
 /**
  * Process the webhook based on the topic
  */
-async function processWebhook(topic: string, payload: any, shopId: string): Promise<void> {
+async function processWebhook(topic: string, payload: unknown, shopId: string): Promise<void> {
   switch (topic) {
     case 'products/create':
     case 'products/update':
-      await handleProductUpdate(payload, shopId);
+      if (typeof payload === 'object' && payload !== null) {
+        await handleProductUpdate(payload as ShopifyProduct, shopId);
+      }
       break;
-    
     case 'products/delete':
-      await handleProductDelete(payload.id, shopId);
+      if (typeof payload === 'object' && payload !== null && 'id' in payload) {
+        await handleProductDelete(payload.id as string, shopId);
+      }
       break;
-    
     case 'orders/create':
     case 'orders/updated':
-      await handleOrderUpdate(payload, shopId);
+      if (typeof payload === 'object' && payload !== null) {
+        await handleOrderUpdate(payload as ShopifyOrder, shopId);
+      }
       break;
-    
     case 'orders/cancelled':
-      await handleOrderCancelled(payload, shopId);
+      if (typeof payload === 'object' && payload !== null) {
+        await handleOrderCancelled(payload as ShopifyOrder, shopId);
+      }
       break;
-    
     case 'app/uninstalled':
       await handleAppUninstalled(shopId);
       break;
-    
     case 'shop/update':
-      await handleShopUpdate(payload, shopId);
+      if (typeof payload === 'object' && payload !== null) {
+        await handleShopUpdate(payload as ShopifyShop, shopId);
+      }
       break;
-    
     default:
       console.log(`Unhandled webhook topic: ${topic}`);
   }
@@ -126,7 +131,7 @@ async function processWebhook(topic: string, payload: any, shopId: string): Prom
 /**
  * Handle product create/update webhooks
  */
-async function handleProductUpdate(product: any, shopId: string): Promise<void> {
+async function handleProductUpdate(product: ShopifyProduct, shopId: string): Promise<void> {
   try {
     // Extract the relevant product data
     const productData = {
@@ -134,12 +139,12 @@ async function handleProductUpdate(product: any, shopId: string): Promise<void> 
       shopId,
       title: product.title,
       handle: product.handle,
-      description: product.body_html || '',
+      description: product.description || '',
       priceMin: getMinPrice(product),
       priceMax: getMaxPrice(product),
-      currency: product.variants[0]?.price_currency_code || 'USD',
-      imageUrl: product.images?.[0]?.src,
-      imageAlt: product.images?.[0]?.alt
+      currency: product.currency || 'USD',
+      imageUrl: product.imageUrl,
+      imageAlt: product.imageAlt
     };
     
     // Upsert the product
@@ -195,19 +200,19 @@ async function handleProductDelete(productId: string, shopId: string): Promise<v
 /**
  * Handle order create/update webhooks
  */
-async function handleOrderUpdate(order: any, shopId: string): Promise<void> {
+async function handleOrderUpdate(order: ShopifyOrder, shopId: string): Promise<void> {
   try {
     // Extract the relevant order data
     const orderData = {
       id: order.id,
       shopId,
-      orderNumber: order.name,
-      customerId: order.customer?.id,
-      financialStatus: order.financial_status,
-      fulfillmentStatus: order.fulfillment_status || 'unfulfilled',
-      totalPrice: parseFloat(order.total_price),
-      currency: order.currency || 'USD',
-      createdAt: new Date(order.created_at)
+      orderNumber: order.orderNumber,
+      customerId: order.customerId,
+      financialStatus: order.financialStatus,
+      fulfillmentStatus: order.fulfillmentStatus,
+      totalPrice: order.totalPrice,
+      currency: order.currency,
+      createdAt: order.createdAt
     };
     
     // Upsert the order
@@ -217,7 +222,7 @@ async function handleOrderUpdate(order: any, shopId: string): Promise<void> {
       create: orderData
     });
     
-    console.log(`Updated order: ${order.name} (${order.id})`);
+    console.log(`Updated order: ${order.orderNumber} (${order.id})`);
   } catch (error) {
     console.error('Error handling order update:', error);
   }
@@ -226,7 +231,7 @@ async function handleOrderUpdate(order: any, shopId: string): Promise<void> {
 /**
  * Handle order cancelled webhooks
  */
-async function handleOrderCancelled(order: any, shopId: string): Promise<void> {
+async function handleOrderCancelled(order: ShopifyOrder, shopId: string): Promise<void> {
   try {
     // Update the order status
     await prisma.shopifyOrder.update({
@@ -237,7 +242,7 @@ async function handleOrderCancelled(order: any, shopId: string): Promise<void> {
       }
     });
     
-    console.log(`Cancelled order: ${order.name} (${order.id})`);
+    console.log(`Cancelled order: ${order.orderNumber} (${order.id})`);
   } catch (error) {
     console.error('Error handling order cancellation:', error);
   }
@@ -269,7 +274,7 @@ async function handleAppUninstalled(shopId: string): Promise<void> {
 /**
  * Handle shop update webhooks
  */
-async function handleShopUpdate(shop: any, shopId: string): Promise<void> {
+async function handleShopUpdate(shop: ShopifyShop, shopId: string): Promise<void> {
   try {
     // Update the store information
     await prisma.shopifyStore.update({
@@ -290,7 +295,7 @@ async function handleShopUpdate(shop: any, shopId: string): Promise<void> {
 /**
  * Helper to get minimum price from product variants
  */
-function getMinPrice(product: any): number {
+function getMinPrice(product: ShopifyProduct): number {
   if (!product.variants || product.variants.length === 0) {
     return 0;
   }
@@ -305,7 +310,7 @@ function getMinPrice(product: any): number {
 /**
  * Helper to get maximum price from product variants
  */
-function getMaxPrice(product: any): number {
+function getMaxPrice(product: ShopifyProduct): number {
   if (!product.variants || product.variants.length === 0) {
     return 0;
   }

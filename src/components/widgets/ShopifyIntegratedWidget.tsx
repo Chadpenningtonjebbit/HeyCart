@@ -2,6 +2,23 @@ import React, { useState } from 'react';
 import { ProductSearch } from '../shopify/ProductSearch';
 import { Button } from '@/components/ui/button';
 import { Tag, ShoppingBag, Package, RefreshCcw } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { ColorInput } from "@/components/ui/color-input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle2, Settings2, MessageSquare, ShoppingCart, Users, BarChart3 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { WidgetConfig } from "@/lib/types";
+import { useWidgetStore } from "@/lib/store";
+import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 interface Product {
   id: string;
