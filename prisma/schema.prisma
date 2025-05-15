@@ -1,10 +1,13 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // User model
@@ -36,32 +39,28 @@ model Widget {
 
 // Shopify store model
 model ShopifyStore {
-  id          String   @id
-  name        String
-  domain      String   @unique
-  email       String?
+  id        String   @id @default(cuid())
+  name      String
+  domain    String   @unique
+  email     String
   accessToken String
-  scope       String
-  isActive    Boolean  @default(true)
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  widgets     Widget[]
-  products    ShopifyProduct[]
-  orders      ShopifyOrder[]
-  customers   ShopifyCustomer[]
-  webhooks    ShopifyWebhook[]
+  scope     String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products ShopifyProduct[]
+  orders   ShopifyOrder[]
+  webhooks ShopifyWebhookEvent[]
 }
 
 // Shopify product model
 model ShopifyProduct {
   id          String   @id
   shopId      String
-  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
   title       String
   handle      String
-  description String   @db.Text
+  description String?
   priceMin    Float
   priceMax    Float
   currency    String
@@ -69,72 +68,45 @@ model ShopifyProduct {
   imageAlt    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  variants    ShopifyProductVariant[]
 
-  @@index([shopId])
-  @@index([handle])
+  shop    ShopifyStore @relation(fields: [shopId], references: [id])
+  variants ShopifyProductVariant[]
 }
 
 // Shopify product variant model
 model ShopifyProductVariant {
-  id              String   @id
-  productId       String
-  product         ShopifyProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
-  title           String
-  price           Float
+  id             String   @id
+  productId      String
+  title          String
+  price          Float
   availableForSale Boolean
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
 
-  @@index([productId])
+  product ShopifyProduct @relation(fields: [productId], references: [id])
 }
 
 // Shopify order model
 model ShopifyOrder {
-  id                String   @id
-  shopId            String
-  shop              ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  orderNumber       String
-  customerId        String?
-  financialStatus   String
+  id               String   @id
+  shopId           String
+  orderNumber      String
+  customerId       String?
+  financialStatus  String
   fulfillmentStatus String
-  totalPrice        Float
-  currency          String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  totalPrice       Float
+  currency         String
+  createdAt        DateTime
 
-  @@index([shopId])
-  @@index([customerId])
-}
-
-// Shopify customer model
-model ShopifyCustomer {
-  id          String   @id
-  shopId      String
-  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  email       String
-  firstName   String?
-  lastName    String?
-  ordersCount Int       @default(0)
-  totalSpent  Float     @default(0)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([shopId])
-  @@index([email])
+  shop ShopifyStore @relation(fields: [shopId], references: [id])
 }
 
 // Shopify webhook model
-model ShopifyWebhook {
-  id          String   @id @default(cuid())
+model ShopifyWebhookEvent {
+  id          String   @id
   shopId      String
-  shop        ShopifyStore @relation(fields: [shopId], references: [id], onDelete: Cascade)
   topic       String
-  address     String
-  webhookId   String
+  payload     Json
+  processedAt DateTime?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
-  @@index([shopId])
-  @@index([topic])
+  shop ShopifyStore @relation(fields: [shopId], references: [id])
 } 
